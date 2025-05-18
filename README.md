@@ -94,7 +94,6 @@ Major dependencies include:
 - Langchain.js for RAG implementation
 - PDF.js for PDF processing
 
-For a complete list, see `dependencies.md`.
 
 ## Limitations
 
