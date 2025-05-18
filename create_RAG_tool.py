@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-IASPIS Search Module - Retrieves relevant chunks from Pinecone using semantic search
+Vector Search Module - Retrieves relevant chunks from Pinecone using semantic search
 """
 
 import os
@@ -9,56 +9,63 @@ from typing import List, Dict, Any
 from openai import OpenAI
 from pinecone import Pinecone
 
-# Configuration
-INDEX_NAME = "scaling-up"
-NAMESPACE = "scaling-up-demo"
-EMBEDDING_MODEL = "text-embedding-3-small"
-TOP_K = 9  # Number of chunks to retrieve
-TOP_RERANKED = 4  # Number of chunks to keep after reranking
+# Default configuration
+DEFAULT_TOP_K = 9  # Number of chunks to retrieve
+DEFAULT_TOP_RERANKED = 4  # Number of chunks to keep after reranking
+DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
 
 # Initialize clients
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
 
-def get_embedding(text: str) -> List[float]:
+def get_embedding(text: str, embedding_model: str = DEFAULT_EMBEDDING_MODEL) -> List[float]:
     """
-    Generate an embedding for the given text using OpenAI's text-embedding-3-small model.
+    Generate an embedding for the given text using OpenAI's embedding model.
     
     Args:
         text: The input text to embed
+        embedding_model: The name of the embedding model to use
         
     Returns:
         List of float values representing the embedding vector
     """
     response = client.embeddings.create(
         input=text,
-        model=EMBEDDING_MODEL
+        model=embedding_model
     )
     return response.data[0].embedding
 
-def scaling_up_search(query: str) -> str:
+def vector_search(query: str, index_name: str, namespace: str, 
+                 top_k: int = DEFAULT_TOP_K, 
+                 top_reranked: int = DEFAULT_TOP_RERANKED,
+                 embedding_model: str = DEFAULT_EMBEDDING_MODEL) -> str:
     """
-    Search for relevant chunks in the Pinecone index based on the query.
-    Retrieves TOP_K results and reranks using Cohere to select TOP_RERANKED.
+    Search for relevant chunks in the specified Pinecone index based on the query.
+    Retrieves top_k results and reranks using Cohere to select top_reranked.
     
     Args:
         query: User query string
+        index_name: Name of the Pinecone index to search
+        namespace: Namespace within the index to search
+        top_k: Number of initial matches to retrieve
+        top_reranked: Number of matches to keep after reranking
+        embedding_model: Model to use for generating embeddings
         
     Returns:
-        Formatted string containing the top k chunks with their IDs and content
+        Formatted string containing the top reranked chunks with their IDs and content
     """
     try:
         # Get embedding for the query
-        query_embedding = get_embedding(query)
+        query_embedding = get_embedding(query, embedding_model)
         
-        # Connect directly to the existing index
-        index = pc.Index(INDEX_NAME)
+        # Connect directly to the specified index
+        index = pc.Index(index_name)
         
         # Query the index
         query_response = index.query(
-            namespace=NAMESPACE,
+            namespace=namespace,
             vector=query_embedding,
-            top_k=TOP_K,
+            top_k=top_k,
             include_metadata=True,
             include_values=False
         )
@@ -84,7 +91,7 @@ def scaling_up_search(query: str) -> str:
             model="cohere-rerank-3.5",
             query=query,
             documents=documents,
-            top_n=TOP_RERANKED,
+            top_n=top_reranked,
             return_documents=True
         )
         
@@ -120,6 +127,18 @@ def scaling_up_search(query: str) -> str:
         
     except Exception as e:
         return f"Error performing search: {str(e)}"
+
+# For backward compatibility
+def scaling_up_search(query: str) -> str:
+    """
+    Legacy function for backward compatibility.
+    Calls vector_search with hardcoded Scaling Up parameters.
+    """
+    return vector_search(
+        query=query,
+        index_name="scaling-up",
+        namespace="scaling-up-demo"
+    )
 
 def test_search():
     """Test function to demonstrate usage"""
