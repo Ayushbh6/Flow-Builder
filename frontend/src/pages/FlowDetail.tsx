@@ -10,7 +10,6 @@ import ReactFlow, {
   Connection,
   Edge,
   NodeTypes,
-  Node,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { 
@@ -119,7 +118,7 @@ const FlowDetail: React.FC = () => {
     };
 
     fetchFlow();
-  }, [id]);
+  }, [id, setNodes, setEdges]);
 
   const onConnect = useCallback((params: Edge | Connection) => {
     setEdges((eds) => addEdge({ ...params, animated: true }, eds));
